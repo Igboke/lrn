@@ -1,5 +1,5 @@
 import tkinter as tk
-import time
+from tkinter import filedialog
 from datetime import datetime, timedelta
 from playsound import playsound
 import threading
@@ -39,14 +39,35 @@ class AlarmGUI:
         #buttons
         #button frame so the buttons can be aligned
         self.buttonframe = tk.Frame(self.window)
-        self.buttonframe.grid(row=3,column=0)
+        self.buttonframe.grid(row=4,column=0,pady=10)
         self.button1 = tk.Button(self.buttonframe,text='START',command=self.start_func)
         self.button2 = tk.Button(self.buttonframe,text='STOP',command=self.stop_func,state='disabled')
         self.button1.pack(side='left',padx=10)
         self.button2.pack(side='left',padx=10)
 
+        #alarm sound selection frame
+        self.sound_frame = tk.Frame(self.window)
+        self.sound_frame.grid(row=3,column=0,pady=10)
+
+        #sound selection
+        self.sound_label = tk.Label(self.sound_frame,text='Alarm Sound: ')
+        self.sound_label.pack(side='left')
+        #initialization
+        self.selected_sounds= tk.StringVar(self.sound_frame)
+        self.selected_sounds.set('Select a Sound File')
+        self.recent_sounds = ['Select a Sound File']
+
+        #Option menu
+        self.sound_option = tk.OptionMenu(self.sound_frame,self.selected_sounds,*self.recent_sounds,self.update_selected_sounds)
+        self.sound_option.pack(side='left',padx= 5)
+
+        #Browser button
+        self.browse_button = tk.Button(self.sound_frame,text='Browse',command=self.browse_sound_files)
+        self.browse_button.pack(side='left',padx=5)
+
         #controller for stop and start
         self.control = False
+
 
     def validate_input(self) -> (int|None):
         try:
@@ -83,24 +104,44 @@ class AlarmGUI:
     def countdown(self,minutes):
         timex = datetime.now() + timedelta(minutes=minutes)
         #datetime.now gives us the current date and time
-        #times is the date and time we wish the alarm to sound
+        #timex is the date and time we wish the alarm to sound
         while self.control and datetime.now() < timex:
             remaining_time = timex - datetime.now()
             mins,secs= divmod(remaining_time.seconds,60)
 
             #after 0.1 seconds update the giant clock
             self.window.after(0,self.display.config,{'text':f'{mins:02d}:{secs:02d}'})
+            self.window.after(100) #added this since the quick transition from updating the giant clock and calculating the time was lagging the clock
         
         if self.control:
             #if it ends normally without interruption
             self.stop_func()
             self.play_alarm()
 
+    def update_selected_sounds(self,value):
+        pass
+    def browse_sound_files(self):
+        filename = filedialog.askopenfilename(title='Select Sound File',filetypes=[('Audio Files',['.wav','.mp3','.ogg'])])
+        if filename:
+            #sets the song file to be played, will be gotten using self.selected_sounds.get()
+            self.selected_sounds.set(filename)
+            if filename not in self.recent_sounds:
+                #adds the file name to the drop down menu through the list options created when instantiated
+                self.recent_sounds.append(filename)
+                self.sound_option['menu'].delete(0,'end')
+                for sound in self.recent_sounds:
+                    #just in case you browsed more than 1 song the option you pick already has a command attached to it once you select it
+                    #learned about late binding
+                    #the for loop asigns all our songs added to the list (recent sounds) to the variable sound, because of late binding only the last song added is eligible for 'setting i.e to .set' but when a x = song is used we assign the current clicked object to x, in late binding we cannot do that since the last value automatically gets assigned the variable name 
+                    self.sound_option['menu'].add_command(label=sound,command=lambda x=sound:self.selected_sounds.set(x))
+        
     def play_alarm(self):
-        try:
-            playsound(r'C:\\Users\\Lenovo\\Documents\\scripts\\alarm.mp3')
-        except Exception as e:
-            self.display.config(text=f'Could not play sound: {e}')
+        sound_ = self.selected_sounds.get()
+        if sound_ != 'Select a Sound File':
+            try:
+                playsound(sound_)
+            except Exception as e:
+                self.display.config(text=f'Could not play sound: {e}')
 
     def run(self) -> None:
         #run the application
